@@ -55,7 +55,7 @@ def part2(inp):
 
 
 inp = None
-with open("res/day1.txt") as f:
+with open("res/day01.txt") as f:
     inp = list(map(lambda s: s.strip(), f.readlines()))
 
 print(part1(inp))
