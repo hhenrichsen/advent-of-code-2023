@@ -1,98 +1,79 @@
-from util import (
-    sort_lambda,
-    intersect_strings,
-    windows,
-    stripped_lines,
-    segmented_lines,
-    breadth_first_search,
-    parse_grid,
-    map_grid,
-    filter_grid,
-    neighbor_coords,
-    flood,
-)
+from util import Grid, sort_lambda, ne, not_in, inv, compare_x
 
 
-def part1(inp):
+def part1(inp: Grid):
     sum = 0
-    coords = filter_grid(
-        inp,
-        lambda c, x, y, grid: c.isnumeric()
-        and any(
-            [
-                (not grid[xy[1]][xy[0]].isnumeric()) and grid[xy[1]][xy[0]] != "."
-                for xy in neighbor_coords(grid, x, y, True)
-            ]
-        ),
+    numbers = inp.filter(
+        lambda item: item.data.isnumeric()
+        and item.count_neighbor_data(
+            [inv(str.isnumeric), ne(".")],
+            diagonal=True,
+        )
+        > 0
     )
+
     seen = set()
-    for coord in coords:
-        if coord in seen:
+    for number in numbers:
+        if number in seen:
             continue
-        neighbors = set([coord])
+        neighbors = set([number])
         while len(d := neighbors.difference(seen)) > 0:
             for c in d:
-                for xy in neighbor_coords(inp, *c):
-                    if inp[xy[1]][xy[0]].isnumeric() and xy not in seen:
-                        neighbors.add(xy)
+                neighbors.update(
+                    c.filter_neighbor_data(
+                        [str.isnumeric, not_in(seen)],
+                        diagonal=True,
+                    )
+                )
                 seen.add(c)
-        l = sort_lambda(neighbors, lambda a, b: a[0] - b[0])
+        l = sort_lambda(neighbors, compare_x)
         seen.update(l)
-        a = int("".join([inp[coord[1]][coord[0]] for coord in l]))
+        a = int("".join([inp[coord.x, coord.y]() for coord in l]))
         sum += a
     return sum
 
 
-def part2(inp):
+def part2(inp: Grid):
     sum = 0
-    stars = filter_grid(
-        inp,
-        lambda c, x, y, grid: c == "*"
-        and len(
-            [
-                xy
-                for xy in neighbor_coords(grid, x, y, True)
-                if grid[xy[1]][xy[0]].isnumeric()
-            ]
-        )
-        > 1,
+    stars = inp.filter(
+        lambda c: c() == "*" and c.count_neighbor_data(str.isnumeric, diagonal=True) > 1
     )
-    seen = set()
+
     for star in stars:
-        coords = set(
-            [
-                c
-                for c in neighbor_coords(inp, *star, True)
-                if inp[c[1]][c[0]].isnumeric()
-            ]
+        neighboring_numbers = set(
+            star.filter_neighbor_data(str.isnumeric, diagonal=True)
         )
         seen = set()
         numbers = list()
-        for coord in coords:
-            if coord in seen:
+        for neighbor in neighboring_numbers:
+            if neighbor in seen:
                 continue
-            neighbors = set([coord])
+            neighbors = set([neighbor])
             while len(d := neighbors.difference(seen)) > 0:
                 for c in d:
-                    for xy in neighbor_coords(inp, *c):
-                        if inp[xy[1]][xy[0]].isnumeric() and xy not in seen:
-                            neighbors.add(xy)
+                    neighbors.update(
+                        c.filter_neighbor_data(
+                            [str.isnumeric, not_in(seen)],
+                            diagonal=True,
+                        )
+                    )
                     seen.add(c)
-            l = sort_lambda(neighbors, lambda a, b: a[0] - b[0])
-            a = int("".join([inp[coord[1]][coord[0]] for coord in l]))
+            l = sort_lambda(neighbors, compare_x)
+            a = int("".join([inp[coord.x, coord.y]() for coord in l]))
             numbers.append(a)
         if len(numbers) == 2:
             sum += numbers[0] * numbers[1]
     return sum
 
 
-test_inp = parse_grid("res/day03a.txt", lambda c, x, y: c)
+test_inp = Grid.read("res/day03a.txt")
 
 print("TEST DAY 03:")
 print(part1(test_inp))
 print(part2(test_inp))
+print()
 
-inp = parse_grid("res/day03.txt", lambda c, x, y: c)
+inp = Grid.read("res/day03.txt")
 
 print("FINAL DAY 03:")
 print(part1(inp))

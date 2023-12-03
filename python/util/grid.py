@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import Callable, List, Tuple, TypeVar
+from typing import Any, Callable, Generic, List, Set, Tuple, TypeVar, Union
 from .util import read_stripped_lines
 
 
@@ -7,174 +7,319 @@ A = TypeVar("A")
 B = TypeVar("B")
 C = TypeVar("C")
 
-GridCall = Callable[[A, int, int, List[List[A]]], B]
-GridCallCandidate = (
-    Callable[[], B]
-    | Callable[[A], B]
-    | Callable[[A, List[List[A]]], B]
-    | Callable[[A, int, int], B]
-    | GridCall
-)
-
-AugmentedGridCall = Callable[[C, A, int, int, List[List[A]]], B]
-AugmentedGridCallCandidate = (
-    Callable[[], B]
-    | Callable[[A], B]
-    | Callable[[C, A], B]
-    | Callable[[C, A, List[List[A]]], B]
-    | Callable[[C, A, int, int], B]
-    | GridCall
-)
-
 AGrid = List[List[A]]
 BGrid = List[List[B]]
 CGrid = List[List[C]]
 Coord = Tuple[int, int]
 
 
-def _grid_call(fn: GridCallCandidate, name: str) -> GridCall:
-    """
-    Figures out how many parameters a grid function parameter is expecting and
-    returns a function that uses that many parameters while handling the four
-    that one of the grid functions is expecting.
-    """
-    sig = signature(fn)
-    ct = len(sig.parameters)
-    if ct == 0:
-        return lambda _item, _x, _y, _grid: fn()
-    elif ct == 1:
-        return lambda item, _x, _y, _grid: fn(item)
-    elif ct == 2:
-        return lambda item, _x, _y, grid: fn(item, grid)
-    elif ct == 3:
-        return lambda item, x, y, _: fn(item, x, y)
-    elif ct == 4:
-        return fn
-    else:
-        raise Exception(
-            f"Invalid function reference param number {ct} for grid function {name}: max is 4"
-        )
+def _curry_filter(filter):
+    return (
+        lambda x: all([f(x) for f in filter]) if isinstance(filter, list) else filter(x)
+    )
 
 
-def _augmented_grid_call(
-    fn: AugmentedGridCallCandidate, name: str
-) -> AugmentedGridCall:
-    """
-    Figures out how many parameters a grid function parameter is expecting and
-    returns a function that uses that many parameters while handling the four
-    that one of the grid functions is expecting.
-    """
-    sig = signature(fn)
-    ct = len(sig.parameters)
-    if ct == 0:
-        return lambda _augment, _item, _x, _y, _grid: fn()
-    elif ct == 1:
-        return lambda _augment, item, _x, _y, _grid: fn(item)
-    elif ct == 2:
-        return lambda augment, item, _x, _y, _grid: fn(augment, item)
-    elif ct == 3:
-        return lambda augment, item, _x, _y, grid: fn(augment, item, grid)
-    elif ct == 4:
-        return lambda augment, item, x, y, _: fn(augment, item, x, y)
-    elif ct == 5:
-        return fn
-    else:
-        raise Exception(
-            f"Invalid function reference param number {ct} for grid function {name}: max is 5"
-        )
+class Grid(Generic[A]):
+    class GridItem(Generic[A]):
+        def __init__(self, parent: "Grid[A]", data: A, x: int, y: int):
+            self.parent = parent
+            self.data = data
+            self.x = x
+            self.y = y
+
+        def __repr__(self):
+            return f"GridItem({repr(self.data)}, {self.x}, {self.y})"
+
+        def __str__(self):
+            return f"GridItem({repr(self.data)}, {self.x}, {self.y})"
+
+        def __eq__(self, other):
+            return (
+                isinstance(other, Grid.GridItem)
+                and self.parent == other.parent
+                and self.data == other.data
+                and self.x == other.x
+                and self.y == other.y
+            )
+
+        def __hash__(self):
+            return hash((self.data, self.x, self.y))
+
+        def clone(self, parent=None, item=None, x=None, y=None):
+            return Grid.GridItem(
+                parent if parent is not None else self.parent,
+                item if item is not None else self.data,
+                x if x is not None else self.x,
+                y if y is not None else self.y,
+            )
+
+        def neighbors(
+            self,
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> List["Grid.GridItem[A]"]:
+            """
+            Get a list of valid neighbor coordinates
+            """
+            res = []
+            sx, sy = self.parent.size()
+
+            if vertical:
+                if self.y - 1 >= 0:
+                    res.append(self.parent[self.x, self.y - 1])
+
+            if horizontal:
+                if self.y < sy and self.x - 1 >= 0:
+                    res.append(self.parent[self.x - 1, self.y])
+                if self.y < sy and self.x + 1 < sx:
+                    res.append(self.parent[self.x + 1, self.y])
+
+            if vertical:
+                if self.y + 1 < sy and self.x < sx:
+                    res.append(self.parent[self.x, self.y + 1])
+
+            if diagonal:
+                if self.y + 1 < sy and self.x + 1 < sx:
+                    res.append(self.parent[self.x + 1, self.y + 1])
+                if self.y + 1 < sy and self.x - 1 >= 0:
+                    res.append(self.parent[self.x - 1, self.y + 1])
+                if self.y - 1 >= 0 and self.x + 1 < sx:
+                    res.append(self.parent[self.x + 1, self.y - 1])
+                if self.y - 1 >= 0 and self.x - 1 >= 0:
+                    res.append(self.parent[self.x - 1, self.y - 1])
+            return res
+
+        def neighbor_data(
+            self,
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> List[A]:
+            """
+            Get the data from neighboring items.
+            """
+            return self.neighbors(horizontal, vertical, diagonal).map(
+                lambda item: item.item
+            )
+
+        def filter_neighbors(
+            self,
+            filter: Union[
+                Callable[["Grid.GridItem[A]"], bool],
+                List[Callable[["Grid.GridItem[A]"], bool]],
+            ],
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> List["Grid.GridItem[A]"]:
+            """
+            Get the neighboring items that match a given filter, based on the
+            full grid item. Returns the full grid item.
+
+            Accepts a single filter or a list of filters.
+
+            Example:
+            ```
+            grid.filter_neighbors(lambda a: a.data.isnumeric() and a.data != ".")
+            ```
+            """
+            results = []
+            neighbors = self.neighbors(horizontal, vertical, diagonal)
+            _filter = _curry_filter(filter)
+            for neighbor in neighbors:
+                if _filter(neighbor):
+                    results.append(neighbor)
+            return results
+
+        def filter_neighbor_data(
+            self,
+            filter: Union[Callable[[A], bool], List[Callable[[A], bool]]],
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> List["Grid.GridItem[A]"]:
+            """
+            Get the neighboring items that match a given filter, based on the
+            data in the grid item. Returns the full grid item.
+
+            Accepts a single filter or a list of filters.
+
+            Examples:
+            ```
+            grid.filter_neighbor_data(lambda a: a.isnumeric() and a != ".")
+            grid.filter_neighbor_data([str.isnumeric, ne(".")])
+            ```
+            """
+            results = []
+            neighbors = self.neighbors(horizontal, vertical, diagonal)
+            _filter = _curry_filter(filter)
+            for neighbor in neighbors:
+                if _filter(neighbor()):
+                    results.append(neighbor)
+            return results
+
+        def count_neighbors(
+            self,
+            filter: Union[
+                Callable[["Grid.GridItem[A]"], bool],
+                List[Callable[["Grid.GridItem[A]"], bool]],
+            ],
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> int:
+            """
+            Count the number of neighboring items that match a given filter,
+            based on the full grid item.
+
+            Accepts a single filter or a list of filters.
+
+            Example:
+            ```
+            grid.count_neighbors(lambda a: a.data.isnumeric() and a.data != ".")
+            ```
+            """
+            count = 0
+            neighbors = self.neighbors(horizontal, vertical, diagonal)
+            _filter = _curry_filter(filter)
+            for neighbor in neighbors:
+                if _filter(neighbor):
+                    count += 1
+            return count
+
+        def count_neighbor_data(
+            self,
+            filter: Union[Callable[[A], bool], List[Callable[[A], bool]]],
+            horizontal: bool = True,
+            vertical: bool = True,
+            diagonal: bool = False,
+        ) -> int:
+            """
+            Count the number of neighboring items that match a given filter,
+            based on the data in the grid item.
+
+            Accepts a single filter or a list of filters.
+
+            Examples:
+            ```
+            grid.count_neighbor_data(lambda a: a.isnumeric() and a != ".")
+            grid.count_neighbor_data([str.isnumeric, ne(".")])
+            ```
+            """
+            count = 0
+            neighbors = self.neighbors(horizontal, vertical, diagonal)
+            _filter = _curry_filter(filter)
+            for neighbor in neighbors:
+                if _filter(neighbor()):
+                    count += 1
+            return count
+
+        def __call__(self) -> A:
+            return self.data
+
+    def __init__(self, data: List[List[A]]):
+        self.__data = []
+        for y, row in enumerate(data):
+            self.__data.append([])
+            for x, item in enumerate(row):
+                self.__data[-1].append(Grid.GridItem(self, item, x, y))
+
+    @staticmethod
+    def read(
+        filename: str,
+        item_parser: Callable[[A, int, int], B] = lambda c, x, y: c,
+        line_splitter: Callable[[List[str]], List[A]] = lambda line: list(line),
+    ) -> "Grid[B]":
+        """
+        Parses a text file into a grid using the given item parser. Defaults to
+        splitting lines character-wise.
+        """
+        inp = read_stripped_lines(filename)
+        data = []
+        for y, line in enumerate(map(line_splitter, inp)):
+            data.append([])
+            for x, item in enumerate(line):
+                data[-1].append(item_parser(item, x, y))
+        return Grid(data)
+
+    def filter(self, filter: Callable[[GridItem[A]], bool]) -> List[GridItem[A]]:
+        """
+        Finds coordinates where a given filter returns true in a grid.
+        """
+        results = []
+        for row in self.__data:
+            for item in row:
+                if filter(item):
+                    results.append(item)
+        return results
+
+    def map(self, map: Callable[[GridItem[A]], B]) -> "Grid[B]":
+        """
+        Transforms each item in a grid to something else.
+        """
+        grid = Grid()
+        for y, row in enumerate(grid):
+            grid.__data.append([])
+            for x, item in enumerate(row):
+                grid.__data[-1].append(Grid.GridItem(grid, map(item), x, y))
+        return grid
+
+    def flood(
+        self,
+        start: Union[Tuple[int, int], GridItem[A]],
+        is_valid: Callable[[GridItem[A]], bool],
+        get_next: Callable[
+            [GridItem[A]], List[GridItem[A]]
+        ] = lambda item: item.neighbors(),
+    ) -> Tuple[int, Set[GridItem[A]]]:
+        """
+        Floods a grid starting at the given coordinates, returning the number of
+        valid items and a set of valid items.
+        """
+        count = 0
+        to_visit = [start if isinstance(start, tuple) else (start.x, start.y)]
+        valid = set()
+        visited = set()
+        while len(to_visit) > 0:
+            check = to_visit.pop(0)
+            visited.add(check)
+            item = self[*check]
+            if is_valid(item):
+                count += 1
+                valid.add(check)
+                neighbors = get_next(item)
+                n = [neighbor for neighbor in neighbors if neighbor not in visited]
+                to_visit.extend(n)
+                visited.update(n)
+        return count, valid
+
+    def __getitem__(self, key: Coord) -> GridItem[A]:
+        """
+        Index into the grid using a tuple (x, y).
+        """
+        return self.__data[key[1]][key[0]]
+
+    def __len__(self) -> int:
+        """
+        Get the total number of items in the grid.
+
+        Assumes that the grid is not jagged.
+        """
+        return len(self.__data) * len(self.__data[0]) if len(self.__data) > 0 else 0
+
+    def size(self) -> Tuple[int, int]:
+        """
+        Get the size of the grid as a tuple (width, height).
+
+        Assumes that the grid is not jagged.
+        """
+        return (len(self.__data[0]), len(self.__data))
 
 
-def neighbor_coords(grid: AGrid, x: int, y: int, diagonal=False) -> List[Coord]:
-    """
-    Get a list of valid neighbor coordinates
-    """
-    res = []
-    if y < len(grid) and len(grid[y]) > x + 1:
-        res.append((x + 1, y))
-    if y < len(grid) and x - 1 >= 0:
-        res.append((x - 1, y))
-    if y + 1 < len(grid) and x < len(grid[y]):
-        res.append((x, y + 1))
-    if y - 1 >= 0:
-        res.append((x, y - 1))
-    if diagonal:
-        if y + 1 < len(grid) and len(grid[y + 1]) > x + 1:
-            res.append((x + 1, y + 1))
-        if y + 1 < len(grid) and x - 1 >= 0:
-            res.append((x - 1, y + 1))
-        if y - 1 >= 0 and len(grid[y - 1]) > x + 1:
-            res.append((x + 1, y - 1))
-        if y - 1 >= 0 and x - 1 >= 0:
-            res.append((x - 1, y - 1))
-    return res
+def compare_x(a: Grid.GridItem[A], b: Grid.GridItem[B]) -> int:
+    return a.x - b.x
 
 
-def parse_grid(
-    filename: str,
-    item_parser: Callable[[A], B],
-    line_splitter: Callable[[List[str]], List[A]] = lambda line: list(line),
-) -> BGrid:
-    """
-    Parses a text file into a grid using the given item parser. Defaults to
-    splitting lines character-wise.
-    """
-    inp = read_stripped_lines(filename)
-    grid = []
-    for y, line in enumerate(map(line_splitter, inp)):
-        grid.append([])
-        for x, item in enumerate(line):
-            grid[-1].append(item_parser(item, x=x, y=y))
-    return grid
-
-
-def filter_grid(grid: AGrid, filter: GridCallCandidate) -> List[Coord]:
-    """
-    Finds coordinates where a given filter returns true in a grid.
-    """
-    fn = _grid_call(filter, "filter_grid")
-    results = []
-    for y, row in enumerate(grid):
-        for x, item in enumerate(row):
-            if fn(item, x, y, grid):
-                results.append((x, y))
-    return results
-
-
-def map_grid(grid: AGrid, map: GridCallCandidate) -> BGrid:
-    """
-    Transforms each item in a grid to something else.
-    """
-    fn = _grid_call(map, "map_grid")
-    results = []
-    for y, row in enumerate(grid):
-        results.append([])
-        for x, item in enumerate(row):
-            results[-1].append(fn(item, x, y, grid))
-    return results
-
-
-def grid_size(grid: AGrid) -> int:
-    return len(grid) * len(grid[0]) if len(grid) > 0 else 0
-
-
-def flood(
-    grid: AGrid, valid: GridCallCandidate, start_x: int, start_y: int, next
-) -> BGrid:
-    fn = _grid_call(valid, "flood")
-    count = 0
-    to_visit = [(start_x, start_y)]
-    valid = set()
-    visited = set()
-    while len(to_visit) > 0:
-        check = to_visit.pop(0)
-        visited.add(check)
-        check_x, check_y = check
-        item = grid[check_y][check_x]
-        if fn(item, check_x, check_y, grid):
-            count += 1
-            valid.add(check)
-            neighbors = next(grid, check_x, check_y)
-            n = [neighbor for neighbor in neighbors if neighbor not in visited]
-            to_visit.extend(n)
-            visited.update(n)
-    return count, valid
+def compare_y(a: Grid.GridItem[A], b: Grid.GridItem[B]) -> int:
+    return a.y - b.y

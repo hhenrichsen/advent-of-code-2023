@@ -1,4 +1,4 @@
-from typing import IO, Iterable, List, TypeVar
+from typing import IO, Callable, Iterable, List, TypeVar
 from numbers import Number
 
 
@@ -59,3 +59,27 @@ def segmented_lines(file: IO[any], strip=True) -> List[List[str]]:
             res.append([])
         else:
             res[-1].append(line)
+
+
+def ne(value: A):
+    return lambda x: x != value
+
+
+def eq(value: A):
+    return lambda x: x == value
+
+
+def is_in(l: Iterable[A]):
+    return lambda x: x not in l
+
+
+def not_in(l: Iterable[A]):
+    return lambda x: x not in l
+
+
+def inv(fn: Callable[[A], bool]):
+    return lambda x: not fn(x)
+
+
+def either(a: Callable[[A], bool], b: Callable[[A], bool]):
+    return lambda x: a(x) or b(x)
