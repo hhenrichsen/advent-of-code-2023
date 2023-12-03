@@ -32,7 +32,6 @@ CGrid = List[List[C]]
 Coord = Tuple[int, int]
 
 
-
 def _grid_call(fn: GridCallCandidate, name: str) -> GridCall:
     """
     Figures out how many parameters a grid function parameter is expecting and
@@ -56,7 +55,10 @@ def _grid_call(fn: GridCallCandidate, name: str) -> GridCall:
             f"Invalid function reference param number {ct} for grid function {name}: max is 4"
         )
 
-def _augmented_grid_call(fn: AugmentedGridCallCandidate, name: str) -> AugmentedGridCall:
+
+def _augmented_grid_call(
+    fn: AugmentedGridCallCandidate, name: str
+) -> AugmentedGridCall:
     """
     Figures out how many parameters a grid function parameter is expecting and
     returns a function that uses that many parameters while handling the four
@@ -81,7 +83,8 @@ def _augmented_grid_call(fn: AugmentedGridCallCandidate, name: str) -> Augmented
             f"Invalid function reference param number {ct} for grid function {name}: max is 5"
         )
 
-def neighbor_coords(grid: AGrid, x: int, y: int) -> List[Coord]:
+
+def neighbor_coords(grid: AGrid, x: int, y: int, diagonal=False) -> List[Coord]:
     """
     Get a list of valid neighbor coordinates
     """
@@ -94,7 +97,17 @@ def neighbor_coords(grid: AGrid, x: int, y: int) -> List[Coord]:
         res.append((x, y + 1))
     if y - 1 >= 0:
         res.append((x, y - 1))
+    if diagonal:
+        if y + 1 < len(grid) and len(grid[y + 1]) > x + 1:
+            res.append((x + 1, y + 1))
+        if y + 1 < len(grid) and x - 1 >= 0:
+            res.append((x - 1, y + 1))
+        if y - 1 >= 0 and len(grid[y - 1]) > x + 1:
+            res.append((x + 1, y - 1))
+        if y - 1 >= 0 and x - 1 >= 0:
+            res.append((x - 1, y - 1))
     return res
+
 
 def parse_grid(
     filename: str,
@@ -143,10 +156,13 @@ def map_grid(grid: AGrid, map: GridCallCandidate) -> BGrid:
 def grid_size(grid: AGrid) -> int:
     return len(grid) * len(grid[0]) if len(grid) > 0 else 0
 
-def flood(grid: AGrid, valid: GridCallCandidate, start_x: int, start_y: int, next) -> BGrid:
+
+def flood(
+    grid: AGrid, valid: GridCallCandidate, start_x: int, start_y: int, next
+) -> BGrid:
     fn = _grid_call(valid, "flood")
     count = 0
-    to_visit = [(start_x, start_y)] 
+    to_visit = [(start_x, start_y)]
     valid = set()
     visited = set()
     while len(to_visit) > 0:
