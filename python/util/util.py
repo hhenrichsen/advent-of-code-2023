@@ -1,4 +1,4 @@
-from typing import Iterable, List, TypeVar
+from typing import IO, Iterable, List, TypeVar
 from numbers import Number
 
 
@@ -31,19 +31,31 @@ def intersect_strings(strings):
 def windows(l, sz):
     return [l[i - sz : i] for i in range(sz, len(l) + 1)]
 
+
 def sort_lambda(l, fn):
     class __InternalSort:
         def __init__(self, v):
             self.v = v
-            
+
         def __lt__(self, other):
             res = fn(self.v, other.v)
             if isinstance(res, bool):
-                return res 
+                return res
             elif isinstance(res, Number):
                 return res < 0
-        
+
     c_list = list(map(__InternalSort, l))
     return list(map(lambda c: c.v, sorted(c_list)))
 
-    
+
+def stripped_lines(file: IO[any]) -> List[str]:
+    return list(map(lambda s: s.strip(), file.readlines()))
+
+
+def segmented_lines(file: IO[any], strip=True) -> List[List[str]]:
+    res = []
+    for line in stripped_lines(file) if strip else file.readlines():
+        if line == "":
+            res.append([])
+        else:
+            res[-1].append(line)
