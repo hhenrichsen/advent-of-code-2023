@@ -5,7 +5,7 @@ from util import (
     RestRegion,
     UntilRegion,
     discard,
-    re_whitespace_segmenter,
+    whitespace_numbers,
 )
 
 p = InputParser(
@@ -17,9 +17,9 @@ p = InputParser(
     ],
     [
         discard,
-        re_whitespace_segmenter(int, str.isnumeric, set),
+        whitespace_numbers(set),
         discard,
-        re_whitespace_segmenter(int, str.isnumeric, set),
+        whitespace_numbers(set),
     ],
 )
 

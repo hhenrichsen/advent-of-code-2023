@@ -129,5 +129,9 @@ def space_segmenter(
     return lambda s: result_transform(map(parser, s.strip().split(" ")))
 
 
+def whitespace_numbers(transform=list):
+    return re_whitespace_segmenter(int, str.isnumeric, transform)
+
+
 def discard(_):
     return None

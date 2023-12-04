@@ -35,6 +35,7 @@ from util import (
     sort_lambda,
     space_segmenter,
     stripped_lines,
+    whitespace_numbers,
     windows,
 )
 
