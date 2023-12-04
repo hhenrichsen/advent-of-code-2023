@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from inspect import signature
 import re
 from typing import Callable, Iterable, List, Union, TypeVar
+from .util import compose_fns
 
 
 class Region(ABC):
@@ -94,16 +95,38 @@ class InputParser:
 A = TypeVar("A")
 
 
-def whitespace_segmenter(
-    child: Callable[[str], A],
-    _filter: Callable[[str], bool] = None,
-    transform: Callable[[Iterable[A]], A] = list,
+def re_whitespace_segmenter(
+    element_parser: Union[Callable[[str], A], List[Callable[[str], A]]],
+    element_filter: Callable[[str], bool] = None,
+    result_transform: Callable[[Iterable[A]], A] = list,
 ):
-    if filter:
-        return lambda s: transform(
-            map(child, filter(_filter, re.split("\s+", s.strip())))
+    parser = (
+        compose_fns(element_parser)
+        if isinstance(element_parser, list)
+        else element_parser
+    )
+    if element_filter:
+        return lambda s: result_transform(
+            map(parser, filter(element_filter, re.split("\s+", s.strip())))
         )
-    return lambda s: transform(map(child, re.split("\s+", s.strip())))
+    return lambda s: result_transform(map(parser, re.split("\s+", s.strip())))
+
+
+def space_segmenter(
+    element_parser: Union[Callable[[str], A], List[Callable[[str], A]]],
+    element_filter: Callable[[str], bool] = None,
+    result_transform: Callable[[Iterable[A]], A] = list,
+):
+    parser = (
+        compose_fns(element_parser)
+        if isinstance(element_parser, list)
+        else element_parser
+    )
+    if element_filter:
+        return lambda s: result_transform(
+            map(parser, filter(element_filter, s.strip().split(" ")))
+        )
+    return lambda s: result_transform(map(parser, s.strip().split(" ")))
 
 
 def discard(_):

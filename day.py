@@ -21,6 +21,7 @@ from util import (
     breadth_first_search,
     compare_x,
     compare_y,
+    compose_fns,
     discard,
     either,
     eq,
@@ -29,10 +30,11 @@ from util import (
     is_in,
     ne,
     not_in,
+    re_whitespace_segmenter,
     segmented_lines,
     sort_lambda,
+    space_segmenter,
     stripped_lines,
-    whitespace_segmenter,
     windows,
 )
 
