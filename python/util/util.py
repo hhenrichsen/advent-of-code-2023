@@ -83,3 +83,12 @@ def inv(fn: Callable[[A], bool]):
 
 def either(a: Callable[[A], bool], b: Callable[[A], bool]):
     return lambda x: a(x) or b(x)
+
+
+def compose_fns(fn_list: List[Callable]):
+    def _anon(value):
+        for fn in fn_list:
+            value = fn(value)
+        return value
+
+    return _anon
