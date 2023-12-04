@@ -1,8 +1,14 @@
 from abc import ABC, abstractmethod
 from inspect import signature
 import re
-from typing import Callable, Iterable, List, Union, TypeVar
+from typing import Callable, Iterable, List, Tuple, Union, TypeVar
 from .util import compose_fns
+
+
+A = TypeVar("A")
+
+
+_Discard = object()
 
 
 class Region(ABC):
@@ -74,25 +80,17 @@ class RestRegion(Region):
 
 
 class InputParser:
-    def __init__(self, regions: Union[None, List[Region]], parsers):
-        self.regions = regions if regions is not None else []
-        if regions is not None and parsers is None or len(parsers) != len(regions):
-            raise ValueError(
-                "parsers must be provided and must be the same length as regions"
-            )
-        self.parsers = parsers if parsers is not None else []
+    def __init__(self, pairs: Union[None, List[Tuple[Region, Callable[[str], A]]]]):
+        self.__pairs = pairs
 
     def parse(self, input: str):
         start = 0
-        for i, region in enumerate(self.regions):
+        for region, parser in self.__pairs:
             start, end = region.get_range(input, start, len(input))
-            res = self.parsers[i](input[start:end])
-            if res is not None:
+            res = parser(input[start:end])
+            if res is not _Discard:
                 yield res
             start = end
-
-
-A = TypeVar("A")
 
 
 def re_whitespace_segmenter(
@@ -134,4 +132,4 @@ def whitespace_numbers(transform=list):
 
 
 def discard(_):
-    return None
+    return _Discard

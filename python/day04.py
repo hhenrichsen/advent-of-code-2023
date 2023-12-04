@@ -10,16 +10,10 @@ from util import (
 
 p = InputParser(
     [
-        AfterRegion(":"),
-        UntilRegion("|"),
-        RangeRegion(1),
-        RestRegion(),
-    ],
-    [
-        discard,
-        whitespace_numbers(set),
-        discard,
-        whitespace_numbers(set),
+        (AfterRegion(":"), discard),
+        (UntilRegion("|"), whitespace_numbers(set)),
+        (RangeRegion(1), discard),
+        (RestRegion(), whitespace_numbers(set)),
     ],
 )
 
