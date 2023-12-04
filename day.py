@@ -12,13 +12,16 @@ with open(f"./python/day{day}.py", "w") as f:
     f.write(
         f"""
 from util import (
+    AfterRegion,
     Grid,
     InputParser,
     RangeRegion,
+    RestRegion,
     UntilRegion,
     breadth_first_search,
     compare_x,
     compare_y,
+    discard,
     either,
     eq,
     intersect_strings,
@@ -29,6 +32,7 @@ from util import (
     segmented_lines,
     sort_lambda,
     stripped_lines,
+    whitespace_segmenter,
     windows,
 )
 
@@ -64,7 +68,7 @@ print()
 if not grid:
     inp = None
     with open("res/day{day}.txt") as f:
-        test_inp = list(map(lambda s: s.strip(), f.readlines()))
+        inp = list(map(lambda s: s.strip(), f.readlines()))
 else:
     inp = Grid.read("res/day{day}.txt")
 
