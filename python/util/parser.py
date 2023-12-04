@@ -30,28 +30,6 @@ class RangeRegion(Region):
         return self.__range if self.__range is not None else (start, start + self.__len)
 
 
-class AfterRegion(Region):
-    def __init__(self, matcher: Union[str, Callable[[str, int, str], bool]]):
-        self.__matcher = matcher
-        self.__matcher_params = (
-            len(signature(matcher).parameters) if callable(matcher) else 0
-        )
-
-    def get_range(self, input: str, start=0, len=0):
-        if isinstance(self.__matcher, str):
-            return (start, input.index(self.__matcher, start, len) + 1)
-        for i in range(start, len):
-            if self.__matcher_params == 1:
-                if self.__matcher(input[i]):
-                    return (start, i + 1)
-            elif self.__matcher_params == 2:
-                if self.__matcher(input[i], i):
-                    return (start, i + 1)
-            elif self.__matcher(input[i], i, input):
-                return (start, i + 1)
-        return (start, len)
-
-
 class UntilRegion(Region):
     def __init__(self, matcher: Union[str, Callable[[str, int, str], bool]]):
         self.__matcher = matcher
@@ -72,6 +50,15 @@ class UntilRegion(Region):
             elif self.__matcher(input[i], i, input):
                 return (start, i)
         return (start, len)
+
+
+class AfterRegion(UntilRegion):
+    def __init__(self, matcher: Union[str, Callable[[str, int, str], bool]]):
+        super().__init__(matcher)
+
+    def get_range(self, input: str, start=0, len=0):
+        s, e = super().get_range(input, start, len)
+        return (s, e + 1)
 
 
 class RestRegion(Region):
