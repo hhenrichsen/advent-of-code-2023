@@ -15,6 +15,7 @@ from util import (
     AfterRegion,
     Grid,
     InputParser,
+    Interval,
     RangeRegion,
     RestRegion,
     UntilRegion,
