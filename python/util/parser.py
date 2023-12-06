@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from inspect import signature
 import re
 from typing import Callable, Iterable, List, Tuple, Union, TypeVar
-from .util import compose_fns
+from util import compose_fns
 
 
 A = TypeVar("A")
@@ -18,6 +18,16 @@ class Region(ABC):
 
 
 class RangeRegion(Region):
+    """
+    Defines a region by a range of indices, or by a length.
+
+    >>> RangeRegion(0, 3).get_range("abc", 0, len("abc"))
+    (0, 3)
+
+    >>> RangeRegion(3).get_range("abcdef", 3, len("abcdef"))
+    (3, 6)
+    """
+
     def __init__(self, first: int, second: Union[None, int] = None):
         if second is None:
             self.__len = first
@@ -31,6 +41,17 @@ class RangeRegion(Region):
 
 
 class UntilRegion(Region):
+    """
+    Defines a region up and until a certain character or a certain
+    condition is met.
+
+    >>> UntilRegion("|").get_range("abc|def", 0, len("abc|def"))
+    (0, 3)
+
+    >>> UntilRegion(lambda c: c.isalpha()).get_range("123|def", 0, len("123|def"))
+    (0, 4)
+    """
+
     def __init__(self, matcher: Union[str, Callable[[str, int, str], bool]]):
         self.__matcher = matcher
         self.__matcher_params = (
@@ -53,6 +74,17 @@ class UntilRegion(Region):
 
 
 class AfterRegion(UntilRegion):
+    """
+    Defines a region up to and including a certain character or a certain
+    condition is met.
+
+    >>> AfterRegion(":").get_range("abc: def", 0, len("abc: def"))
+    (0, 4)
+
+    >>> AfterRegion(lambda c: c.isalpha()).get_range("123|def", 0, len("123|def"))
+    (0, 5)
+    """
+
     def __init__(self, matcher: Union[str, Callable[[str, int, str], bool]]):
         super().__init__(matcher)
 
@@ -62,6 +94,16 @@ class AfterRegion(UntilRegion):
 
 
 class RestRegion(Region):
+    """
+    Consumes the remaining text as its own region.
+
+    >>> RestRegion().get_range("abc", 0, len("abc"))
+    (0, 3)
+
+    >>> RestRegion().get_range("abc def", 3, len("abc def"))
+    (3, 7)
+    """
+
     def get_range(self, input: str, start, len):
         return (start, len)
 
@@ -120,3 +162,9 @@ def whitespace_numbers(transform=list):
 
 def discard(_):
     return _Discard
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()
