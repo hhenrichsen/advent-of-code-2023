@@ -1,9 +1,3 @@
-from functools import reduce
-
-from util import partition_list, intersect_strings, windows
-import re
-
-
 def part1(inp):
     sum = 0
     for line in inp:

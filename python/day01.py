@@ -1,8 +1,3 @@
-from functools import reduce
-
-from util import partition_list, intersect_strings, windows
-import re
-
 string_numbers = {
     "one": 1,
     "two": 2,

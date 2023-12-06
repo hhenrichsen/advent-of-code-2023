@@ -1,6 +1,5 @@
 from copy import deepcopy, copy
 from util import (
-    Grid,
     Interval,
 )
 

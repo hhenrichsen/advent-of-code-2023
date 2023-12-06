@@ -1,6 +1,4 @@
-from inspect import signature
-from typing import Any, Callable, Generic, List, Set, Tuple, TypeVar, Union
-from .util import read_stripped_lines
+from typing import Callable, Generic, List, Set, Tuple, TypeVar, Union
 
 
 A = TypeVar("A")
@@ -235,13 +233,14 @@ class Grid(Generic[A]):
         Parses a text file into a grid using the given item parser. Defaults to
         splitting lines character-wise.
         """
-        inp = read_stripped_lines(filename)
-        data = []
-        for y, line in enumerate(map(line_splitter, inp)):
-            data.append([])
-            for x, item in enumerate(line):
-                data[-1].append(item_parser(item, x, y))
-        return Grid(data)
+        with open(filename) as f:
+            inp = list(map(str.strip, f.readlines()))
+            data = []
+            for y, line in enumerate(map(line_splitter, inp)):
+                data.append([])
+                for x, item in enumerate(line):
+                    data[-1].append(item_parser(item, x, y))
+            return Grid(data)
 
     def filter(self, filter: Callable[[GridItem[A]], bool]) -> List[GridItem[A]]:
         """
