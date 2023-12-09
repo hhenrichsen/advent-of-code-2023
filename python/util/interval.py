@@ -111,7 +111,7 @@ class Interval:
         >>> Interval(0, 10).as_range()
         range(0, 10)
         """
-        return range(self.start, self.end)
+        return range(self.start, self.end - self.start)
 
 
 if __name__ == "__main__":
